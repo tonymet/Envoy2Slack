@@ -43,4 +43,4 @@ You can do this the easy way with heroku:
 
 ##Yay.
 
-hit me up if you have problems or concerns: [@harper](http://twitter.com/harper) / [harper@nata2.org](mailto:harper@nata2.org)
+hit me up if you have problems or concerns: [@harper](http://twitter.com/harper) / [harper@modest.com](mailto:harper@modest.com)
