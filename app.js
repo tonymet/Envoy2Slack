@@ -17,19 +17,10 @@ String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g, '');};
 
 /* Handle incoming posts from circleci */
 post_handler = function(payload) {
-    console.log(payload);
+
     visitor = JSON.parse(payload['entry']);
-
-    console.log(visitor);
-    console.log(visitor["id"]);
-    console.log(visitor['your_full_name']);
     var date = new Date(visitor['signed_in_time_local']);
-    console.log(date);
     signin_date = dateFormat(date, "dddd, mmmm dS, yyyy, h:MM:ss TT");
-    console.log(signin_date);
-    console.log(visitor['who_are_you_here_to_see\?']);
-
-
     /* This is the message. tweak it to make it better */
 
     message_string = visitor['your_full_name']+" is here to see "+visitor['who_are_you_here_to_see\?']+".  <" + visitor['photo_url'] + "| Picture of "+visitor['your_full_name']+">"
