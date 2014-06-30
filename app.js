@@ -1,4 +1,4 @@
-require('newrelic');
+
 
 var dateFormat = require('dateformat');
 var express = require("express");
