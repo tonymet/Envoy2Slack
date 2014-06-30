@@ -41,14 +41,6 @@ You can do this the easy way with heroku:
 ###That should do it.
 
 
-##Todo
-
-
-There probably needs to be some better security on the url that is posted to the webhooks. Maybe pass through the `token` that comes from slack via the `circle.yml` config.
-
-Probably other things as well.
-
-
 ##Yay.
 
 hit me up if you have problems or concerns: [@harper](http://twitter.com/harper) / [harper@nata2.org](mailto:harper@nata2.org)
