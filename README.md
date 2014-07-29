@@ -2,6 +2,8 @@
 
 A node app that proxies visitor notifications from [Envoy](https://signwithenvoy.com) to [Slack](http://slack.com)
 
+Uploads photos to S3 for safe keeping and grabs data from rapportive. 
+
 ## How to get it going:
 
 ###Install
@@ -25,10 +27,13 @@ I imagine you could host it yourself, but why?
 
 You will need to set the following environmental variables:
 
-	SLACK_BOTNAME:      buildbot
-	SLACK_CHANNEL:      #code
-	SLACK_ORGANIZATION: lunar
+	SLACK_BOTNAME:      officebot
+	SLACK_CHANNEL:      #office
+	SLACK_ORGANIZATION: startup
 	SLACK_TOKEN:        xxxx
+	S3_BUCKET:          xxxx
+	S3_KEY:             xxxx
+	S3_SECRET:          xxxx
 
 You can do this the easy way with heroku:
 
