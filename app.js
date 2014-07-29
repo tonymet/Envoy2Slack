@@ -61,6 +61,7 @@ function rapportive_callback(error, response, body) {
 
     slack_url = "https://" + slack_org + ".slack.com/services/hooks/incoming-webhook?token=" + slack_token;
 
+    console.log("Message:" + text);
     slack_payload = {
         "text": text,
         "channel" : slack_channel,
@@ -76,9 +77,10 @@ function rapportive_callback(error, response, body) {
         }
     });
   }else{
-            console.log('rapportive error');
-            console.log(error);
-            console.log(response.statusCode);
+            console.log('Slack rapportive error');
+            console.log("Error: " + error);
+            console.log("Status code: " + response.statusCode);
+            console.log("Body: " + body)
         }
 }
 
@@ -99,9 +101,10 @@ grab_email_data = function(email) {
             }
             requests.get(options, rapportive_callback);
         }else{
-            console.log('rapportive error');
-            console.log(error);
-            console.log(response.statusCode);
+            console.log('rapportive session error');
+            console.log("Error: " + error);
+            console.log("Status code: " + response.statusCode);
+            console.log("Body: " + body)
         }
     });
 }
