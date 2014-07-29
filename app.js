@@ -64,8 +64,8 @@ function rapportive_callback(error, response, body) {
     slack_payload = {
         "text": text,
         "channel" : slack_channel,
-        "username" : slack_botname,
-        "icon_emoji": ":ghost:"
+        "username" : "StalkerBot",
+        "icon_emoji": ":stalker:"
     };
 
     /* Post to slack! */
@@ -75,12 +75,16 @@ function rapportive_callback(error, response, body) {
             console.log(body);
         }
     });
-  }
+  }else{
+            console.log('rapportive error');
+            console.log(error);
+            console.log(response.statusCode);
+        }
 }
 
 grab_email_data = function(email) {
 
-    session_url = "http://rapportive.com/login_status?user_email=this_doesnt_exist_@gmail.com"
+    session_url = "http://rapportive.com/login_status?user_email="+email
     info_url = "https://profiles.rapportive.com/contacts/email/" + email
     requests.get(session_url,
     function (error, response, body) {
@@ -94,6 +98,10 @@ grab_email_data = function(email) {
               }
             }
             requests.get(options, rapportive_callback);
+        }else{
+            console.log('rapportive error');
+            console.log(error);
+            console.log(response.statusCode);
         }
     });
 }
