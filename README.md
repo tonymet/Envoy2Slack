@@ -2,7 +2,7 @@
 
 A node app that proxies visitor notifications from [Envoy](https://signwithenvoy.com) to [Slack](http://slack.com)
 
-Uploads photos to S3 for safe keeping and grabs data from rapportive. 
+Uploads photos to S3 for safe keeping and grabs data from fullcontact. 
 
 ## How to get it going:
 
@@ -34,6 +34,7 @@ You will need to set the following environmental variables:
 	S3_BUCKET:          xxxx
 	S3_KEY:             xxxx
 	S3_SECRET:          xxxx
+	FULLCONTACT_KEY:    xxxx
 
 You can do this the easy way with heroku:
 
