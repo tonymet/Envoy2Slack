@@ -18,46 +18,19 @@ var client = knox.createClient({
   , bucket: process.env.S3_BUCKET
 });
 
+var fullcontact = require("fullcontact-api")(process.env.FULL_CONTACT_KEY);
+
 app.get('/', function(request, response) {
-    response.send('Hi! Go Away!');
+    response.redirect('/');
 });
 
 String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g, '');};
 
-function rapportive_callback(error, response, body) {
-  if (!error && response.statusCode == 200) {
-    var info = JSON.parse(body);
-    text = info['contact']['name'] + " is located in " + info['contact']['location']
-    occupations = info['contact']['occupations'];
-    memberships = info['contact']['memberships'];
-    //
-
-    job_text = [];
-    for (index = 0; index < occupations.length; ++index) {
-          job_text[index] = occupations[index]['job_title'] + " at " + occupations[index]['company'] ;
-    }
-
-    social = [];
-
-    for (index = 0; index < memberships.length; ++index) {
-          if (memberships[index]['site_name']== "Twitter"){
-              social[index] = "<" + memberships[index]['profile_url'] + "|@" + memberships[index]['username']  + ">";
-          }
-          if (memberships[index]['site_name']== "LinkedIn"){
-              social[index] = "<" + memberships[index]['profile_url'] + "|linkedin/" + memberships[index]['username']  + ">";
-          }
-          if (memberships[index]['site_name']== "Facebook"){
-              social[index] = "<" + memberships[index]['profile_url'] + "|facebook/" + memberships[index]['username']  + ">";
-          }
-    }
-
-    text = text + ". They are on the internet at " + social.join(", ");
-    text = text + ". Photo of <" +info['contact']['image_url_raw'] + "|" +info['contact']['name'] + ">."
-
+post_to_slack = function(text, botname, emoji){
     slack_org = process.env.SLACK_ORGANIZATION;
     slack_token = process.env.SLACK_TOKEN;
     slack_channel = process.env.SLACK_CHANNEL;
-    slack_botname = process.env.SLACK_BOTNAME;
+
 
     slack_url = "https://" + slack_org + ".slack.com/services/hooks/incoming-webhook?token=" + slack_token;
 
@@ -65,8 +38,8 @@ function rapportive_callback(error, response, body) {
     slack_payload = {
         "text": text,
         "channel" : slack_channel,
-        "username" : "StalkerBot",
-        "icon_emoji": ":stalker:"
+        "username" : botname,
+        "icon_emoji": emoji
     };
 
     /* Post to slack! */
@@ -76,37 +49,79 @@ function rapportive_callback(error, response, body) {
             console.log(body);
         }
     });
+}
+
+
+stalker_callback = function(error, result) {
+  if (!error && (result['status'] != 404)) {
+    console.log(result);
+
+
+    text = result['contactInfo']['givenName'];
+    if (result['demographics']['locationGeneral']==1){
+        text = text + " is located in " + result['demographics']['locationGeneral']+"."
+        text = text + " They are"
+
+    }else {
+        text = text + " is"
+    }
+
+
+    console.log(text);
+    organizations = result['organizations']
+
+    job_text = [];
+    for (index = 0; index < organizations.length; ++index) {
+        if (organizations[index]['isPrimary']){
+          job_text[index] = organizations[index]['title'] + " at " + organizations[index]['name'] ;
+        }
+    }
+
+    text = text + " " + job_text.join(", ") + ".";
+
+    socialProfiles = result['socialProfiles']
+    social = [];
+    social_count = 0;
+    for (index = 0; index < socialProfiles.length; ++index) {
+          if (socialProfiles[index]['typeName']== "Twitter"){
+              social[social_count] = "<" + socialProfiles[index]['url'] + "|@" + socialProfiles[index]['username']  + ">";
+              social_count++;
+          }else if (socialProfiles[index]['typeName']== "LinkedIn"){
+              social[social_count] = "<" + socialProfiles[index]['url'] + "|linkedin/" + socialProfiles[index]['username']  + ">";
+              social_count++;
+          }else if (socialProfiles[index]['typeName']== "Facebook"){
+              social[social_count] = "<" + socialProfiles[index]['url'] + "|facebook/" + socialProfiles[index]['username']  + ">";
+              social_count++;
+          }else if (socialProfiles[index]['typeName']== "Pinterest"){
+              social[social_count] = "<" + socialProfiles[index]['url'] + "|pinterest/" + socialProfiles[index]['username']  + ">";
+              social_count++;
+          }else if (socialProfiles[index]['typeName']== "Flickr"){
+              social[social_count] = "<" + socialProfiles[index]['url'] + "|flickr/" + socialProfiles[index]['username']  + ">";
+              social_count++;
+          }
+    }
+
+
+    text = text + ".\n\nThey are on the internet at " + social.join(", ") + ".";
+
+    photos = result['photos']
+    for (index = 0; index < photos.length; ++index) {
+         if (photos[index]['isPrimary']){
+            text = text + "\n\nPhoto of <" +photos[index]['url'] + "|" +result['contactInfo']['fullName'] + ">."
+          }
+    }
+
+    text = text + "\n\nTheir klout score is " + result['digitalFootprint']['scores'][0]['value'] + ". lol.";
+
+    post_to_slack(text, "StalkerBot", ":stalker:")
+
   }else{
-            console.log('Slack rapportive error');
-            console.log("Error: " + error);
-            console.log("Status code: " + response.statusCode);
-            console.log("Body: " + body)
+            console.log("Status: " + result['message'])
         }
 }
 
 grab_email_data = function(email) {
-
-    session_url = "http://rapportive.com/login_status?user_email="+email
-    info_url = "https://profiles.rapportive.com/contacts/email/" + email
-    requests.get(session_url,
-    function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            var jsonObject = JSON.parse(body);
-            session_token = jsonObject['session_token'];
-            var options = {
-              url: info_url,
-              headers: {
-                    'X-Session-Token': session_token
-              }
-            }
-            requests.get(options, rapportive_callback);
-        }else{
-            console.log('rapportive session error');
-            console.log("Error: " + error);
-            console.log("Status code: " + response.statusCode);
-            console.log("Body: " + body)
-        }
-    });
+    fullcontact.person.findByEmail(email, stalker_callback);
 }
 
 /* Handle incoming posts from circleci */
@@ -138,38 +153,15 @@ post_handler = function(payload) {
 
     grab_email_data(visitor['your_email_address']);
     message_string = visitor['your_full_name']+" is here to see "+visitor['who_are_you_here_to_see\?']+".  <" + photo_url + "| Picture of "+visitor['your_full_name']+">"
-
-    slack_org = process.env.SLACK_ORGANIZATION;
-    slack_token = process.env.SLACK_TOKEN;
-    slack_channel = process.env.SLACK_CHANNEL;
     slack_botname = process.env.SLACK_BOTNAME;
-
-    slack_url = "https://" + slack_org + ".slack.com/services/hooks/incoming-webhook?token=" + slack_token;
-
-    slack_payload = {
-        "text": message_string,
-        "channel" : slack_channel,
-        "username" : slack_botname,
-        "icon_emoji": ":ghost:"
-    };
-
-    /* Post to slack! */
-    requests.post(slack_url, {json:slack_payload},
-    function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            console.log(body);
-        }
-    });
+    post_to_slack(message_string, slack_botname, ":ghost:")
 };
 
 app.get('/hook/', function(request, response) {
-    grab_email_data("harper@nata2.org")
-    response.send("Thank you!");
-    //response.redirect('/');
+    response.redirect('/');
 });
 
 app.post('/hook/', function(request, response) {
-
     console.log("Got response: " + response.statusCode);
     response.send("Thank you!");
     post_handler(request.body);
