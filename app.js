@@ -57,61 +57,85 @@ stalker_callback = function(error, result) {
     console.log(result);
 
 
-    text = result['contactInfo']['givenName'];
-    if (result['demographics']['locationGeneral']==1){
-        text = text + " is located in " + result['demographics']['locationGeneral']+"."
-        text = text + " They are"
+    name = result['contactInfo']['givenName'];
+    text = name;
+    if (result['demographics'] != undefined ){
+        if (result['demographics']['locationGeneral'] != undefined ){
+            text = text + " is located in " + result['demographics']['locationGeneral']+"."
 
-    }else {
-        text = text + " is"
-    }
-
-
-    console.log(text);
-    organizations = result['organizations']
-
-    job_text = [];
-    for (index = 0; index < organizations.length; ++index) {
-        if (organizations[index]['isPrimary']){
-          job_text[index] = organizations[index]['title'] + " at " + organizations[index]['name'] ;
+        }else {
+            text = text + " is"
         }
     }
 
-    text = text + " " + job_text.join(", ") + ".";
-
-    socialProfiles = result['socialProfiles']
-    social = [];
-    social_count = 0;
-    for (index = 0; index < socialProfiles.length; ++index) {
-          if (socialProfiles[index]['typeName']== "Twitter"){
-              social[social_count] = "<" + socialProfiles[index]['url'] + "|@" + socialProfiles[index]['username']  + ">";
-              social_count++;
-          }else if (socialProfiles[index]['typeName']== "LinkedIn"){
-              social[social_count] = "<" + socialProfiles[index]['url'] + "|linkedin/" + socialProfiles[index]['username']  + ">";
-              social_count++;
-          }else if (socialProfiles[index]['typeName']== "Facebook"){
-              social[social_count] = "<" + socialProfiles[index]['url'] + "|facebook/" + socialProfiles[index]['username']  + ">";
-              social_count++;
-          }else if (socialProfiles[index]['typeName']== "Pinterest"){
-              social[social_count] = "<" + socialProfiles[index]['url'] + "|pinterest/" + socialProfiles[index]['username']  + ">";
-              social_count++;
-          }else if (socialProfiles[index]['typeName']== "Flickr"){
-              social[social_count] = "<" + socialProfiles[index]['url'] + "|flickr/" + socialProfiles[index]['username']  + ">";
-              social_count++;
-          }
+    if (result['organizations'] != undefined ){
+        organizations = result['organizations']
+        text = text + " They are employed as "
+        job_text = [];
+        for (index = 0; index < organizations.length; ++index) {
+            if (organizations[index]['isPrimary']){
+              job_text[index] = organizations[index]['title'] + " at " + organizations[index]['name'] ;
+            }
+        }
+        text = text + job_text.join(", ") + ".\n\n";
     }
 
 
-    text = text + ".\n\nThey are on the internet at " + social.join(", ") + ".";
+    if (result['socialProfiles'] != undefined ){
+        socialProfiles = result['socialProfiles']
+        social = [];
+        social_count = 0;
+        for (index = 0; index < socialProfiles.length; ++index) {
+              if (socialProfiles[index]['typeName']== "Twitter"){
+                  social[social_count] = "<" + socialProfiles[index]['url'] + "|@" + socialProfiles[index]['username']  + ">";
+                  social_count++;
+              }else if (socialProfiles[index]['typeName']== "LinkedIn"){
+                  social[social_count] = "<" + socialProfiles[index]['url'] + "|linkedin/>";
+                  social_count++;
+              }else if (socialProfiles[index]['typeName']== "Facebook"){
+                  social[social_count] = "<" + socialProfiles[index]['url'] + "|facebook/" + socialProfiles[index]['username']  + ">";
+                  social_count++;
+              }else if (socialProfiles[index]['typeName']== "Pinterest"){
+                  social[social_count] = "<" + socialProfiles[index]['url'] + "|pinterest/" + socialProfiles[index]['username']  + ">";
+                  social_count++;
+              }else if (socialProfiles[index]['typeName']== "Flickr"){
+                  social[social_count] = "<" + socialProfiles[index]['url'] + "|flickr/" + socialProfiles[index]['username']  + ">";
+                  social_count++;
+              }
+        }
 
-    photos = result['photos']
-    for (index = 0; index < photos.length; ++index) {
-         if (photos[index]['isPrimary']){
-            text = text + "\n\nPhoto of <" +photos[index]['url'] + "|" +result['contactInfo']['fullName'] + ">."
-          }
+
+        if (social.length >0){
+            text = text + "They are on the internet at " + social.join(", ") + ".\n\n";
+
+        }
     }
 
-    text = text + "\n\nTheir klout score is " + result['digitalFootprint']['scores'][0]['value'] + ". lol.";
+
+    if (result['photos'] != undefined ){
+        photos = result['photos']
+        for (index = 0; index < photos.length; ++index) {
+             if (photos[index]['isPrimary']){
+                text = text + "Photo of <" +photos[index]['url'] + "|" +result['contactInfo']['fullName'] + ">.\n\n"
+              }
+        }
+    }
+
+    if (result['digitalFootprint'] != undefined ){
+        text = text + "Their klout score is " + result['digitalFootprint']['scores'][0]['value'] ;
+        if (result['digitalFootprint']['scores'][0]['value']<40){
+            text = text + ". lol n00b."
+        }else if (result['digitalFootprint']['scores'][0]['value']<60){
+            text = text + ". semi-pro n00b? "
+        }else{
+            text = text + ". expert at twitter."
+
+        }
+
+    }
+    if (text == name){
+        text = text + " has no internet presence."
+    }
 
     post_to_slack(text, "StalkerBot", ":stalker:")
 
@@ -158,7 +182,8 @@ post_handler = function(payload) {
 };
 
 app.get('/hook/', function(request, response) {
-    response.redirect('/');
+    //response.redirect('/');
+    grab_email_data("harper@nata2.org")
 });
 
 app.post('/hook/', function(request, response) {
