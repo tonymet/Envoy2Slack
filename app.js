@@ -6,17 +6,24 @@ var qs = require('querystring');
 var requests = require('request');
 var knox = require('knox');
 var https = require('https');
+var hmac_sha256 = require("crypto-js/hmac-sha256");
 
 var app = express();
 app.use(express.logger());
 app.use(express.bodyParser());
 
+if('' == process.env.ENVOY_KEY){
+  console.log("ENVOY_KEY is required.")
+  process.exit();
+}
 
-var client = knox.createClient({
-    key: process.env.S3_KEY
-  , secret: process.env.S3_SECRET
-  , bucket: process.env.S3_BUCKET
-});
+if('1' == process.env.ENABLE_S3){
+  var client = knox.createClient({
+      key: process.env.S3_KEY
+    , secret: process.env.S3_SECRET
+    , bucket: process.env.S3_BUCKET
+  });
+}
 
 var fullcontact = require("fullcontact-api")(process.env.FULL_CONTACT_KEY);
 
@@ -25,14 +32,17 @@ app.get('/', function(request, response) {
 });
 
 String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g, '');};
+check_sig = function(payload, envoy_key){
+  console.log("payload.signature= " + JSON.stringify(payload.signature));
+  console.log("check_sig = " + JSON.stringify(hmac_sha256(payload.timestamp + payload.token, envoy_key)).toString());
+  return hmac_sha256(payload.timestamp + payload.token, envoy_key).toString() == payload.signature.trim();
+}
 
 post_to_slack = function(text, botname, emoji){
     slack_org = process.env.SLACK_ORGANIZATION;
     slack_token = process.env.SLACK_TOKEN;
     slack_channel = process.env.SLACK_CHANNEL;
-
-
-    slack_url = "https://" + slack_org + ".slack.com/services/hooks/incoming-webhook?token=" + slack_token;
+    slack_url = process.env.SLACK_URL;
 
     console.log("Message:" + text);
     slack_payload = {
@@ -53,8 +63,15 @@ post_to_slack = function(text, botname, emoji){
 
 
 stalker_callback = function(error, result) {
+  // if(error || result['status'] != 200){
+  //   console.log("ERROR stalker_callback");
+  //   console.log(result);
+  //
+  //   return;
+  //
+  //
+  // }
   if (!error && (result['status'] != 404)) {
-    console.log(result);
 
 
     name = result['contactInfo']['givenName'];
@@ -149,7 +166,15 @@ grab_email_data = function(email) {
 }
 
 /* Handle incoming posts from circleci */
-post_handler = function(payload) {
+app.post('/hook/', function(request, response) {
+    //console.log("request: " + JSON.stringify(request.body));
+    payload = request.body;
+    if (! check_sig(payload, process.env.ENVOY_KEY)){
+      console.log("ERROR: signature mismatch");
+      response.send("ERROR: signature mismatch");
+      response.code = 502;
+      return;
+    }
 
     visitor = JSON.parse(payload['entry']);
     var date = new Date(visitor['signed_in_time_local']);
@@ -179,19 +204,14 @@ post_handler = function(payload) {
     message_string = visitor['your_full_name']+" is here to see "+visitor['who_are_you_here_to_see\?']+".  <" + photo_url + "| Picture of "+visitor['your_full_name']+">"
     slack_botname = process.env.SLACK_BOTNAME;
     post_to_slack(message_string, slack_botname, ":ghost:")
-};
+    response.send("OK");
+});
 
 app.get('/hook/', function(request, response) {
     //response.redirect('/');
     grab_email_data("harper@nata2.org")
 });
 
-app.post('/hook/', function(request, response) {
-    console.log("Got response: " + response.statusCode);
-    response.send("Thank you!");
-    post_handler(request.body);
-
-});
 
 /*
 There has to be a better way to do this. Thoughts?
@@ -200,10 +220,11 @@ There has to be a better way to do this. Thoughts?
 if ((typeof process.env.SLACK_BOTNAME !== 'undefined' && process.env.SLACK_BOTNAME)||
     (typeof process.env.SLACK_CHANNEL !== 'undefined' && process.env.SLACK_CHANNEL)||
     (typeof process.env.SLACK_ORGANIZATION !== 'undefined' && process.env.SLACK_ORGANIZATION)||
-    (typeof process.env.SLACK_TOKEN !== 'undefined' && process.env.SLACK_TOKEN)
-    (typeof process.env.S3_KEY !== 'undefined' && process.env.S3_KEY)
-    (typeof process.env.S3_SECRET !== 'undefined' && process.env.S3_SECRET)
-    (typeof process.env.S3_BUCKET !== 'undefined' && process.env.S3_BUCKET)
+    (typeof process.env.SLACK_TOKEN !== 'undefined' && process.env.SLACK_TOKEN) ||
+    (typeof process.env.S3_KEY !== 'undefined' && process.env.S3_KEY) ||
+    (typeof process.env.S3_SECRET !== 'undefined' && process.env.S3_SECRET) ||
+    (typeof process.env.S3_BUCKET !== 'undefined' && process.env.S3_BUCKET) ||
+    (typeof process.env.ENVOY_KEY !== 'undefined' && process.env.S3_BUCKET)
 
     )
 {
