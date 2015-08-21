@@ -16,119 +16,22 @@ var client = knox.createClient({
   , bucket: process.env.S3_BUCKET
 });
 
-var fullcontact = require("fullcontact-api")(process.env.FULL_CONTACT_KEY);
-
 app.get('/', function(request, response) {
     response.redirect('/');
 });
 
 String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g, '');};
 
-stalker_callback = function(error, result) {
-  if(error || result['status'] != 200){
-    console.log("ERROR stalker_callback");
-    console.log(result);
-    return;
-  }
-  name = result['contactInfo']['givenName'];
-  text = name;
-  if (result['demographics'] != undefined ){
-      if (result['demographics']['locationGeneral'] != undefined ){
-          text = text + " is located in " + result['demographics']['locationGeneral']+"."
-
-      }else {
-          text = text + " is"
-      }
-  }
-
-  if (result['organizations'] != undefined ){
-      organizations = result['organizations']
-      text = text + " They are employed as "
-      job_text = [];
-      for (index = 0; index < organizations.length; ++index) {
-          if (organizations[index]['isPrimary']){
-            job_text[index] = organizations[index]['title'] + " at " + organizations[index]['name'] ;
-          }
-      }
-      text = text + job_text.join(", ") + ".\n\n";
-  }
-
-
-  if (result['socialProfiles'] != undefined ){
-      socialProfiles = result['socialProfiles']
-      social = [];
-      social_count = 0;
-      for (index = 0; index < socialProfiles.length; ++index) {
-            if (socialProfiles[index]['typeName']== "Twitter"){
-                social[social_count] = "<" + socialProfiles[index]['url'] + "|@" + socialProfiles[index]['username']  + ">";
-                social_count++;
-            }else if (socialProfiles[index]['typeName']== "LinkedIn"){
-                social[social_count] = "<" + socialProfiles[index]['url'] + "|linkedin/>";
-                social_count++;
-            }else if (socialProfiles[index]['typeName']== "Facebook"){
-                social[social_count] = "<" + socialProfiles[index]['url'] + "|facebook/" + socialProfiles[index]['username']  + ">";
-                social_count++;
-            }else if (socialProfiles[index]['typeName']== "Pinterest"){
-                social[social_count] = "<" + socialProfiles[index]['url'] + "|pinterest/" + socialProfiles[index]['username']  + ">";
-                social_count++;
-            }else if (socialProfiles[index]['typeName']== "Flickr"){
-                social[social_count] = "<" + socialProfiles[index]['url'] + "|flickr/" + socialProfiles[index]['username']  + ">";
-                social_count++;
-            }
-      }
-
-
-      if (social.length >0){
-          text = text + "They are on the internet at " + social.join(", ") + ".\n\n";
-
-      }
-  }
-
-
-  if (result['photos'] != undefined ){
-      photos = result['photos']
-      for (index = 0; index < photos.length; ++index) {
-           if (photos[index]['isPrimary']){
-              text = text + "Photo of <" +photos[index]['url'] + "|" +result['contactInfo']['fullName'] + ">.\n\n"
-            }
-      }
-  }
-
-  if (result['digitalFootprint'] != undefined ){
-      text = text + "Their klout score is " + result['digitalFootprint']['scores'][0]['value'] ;
-      if (result['digitalFootprint']['scores'][0]['value']<40){
-          text = text + ". lol n00b."
-      }else if (result['digitalFootprint']['scores'][0]['value']<60){
-          text = text + ". semi-pro n00b? "
-      }else{
-          text = text + ". expert at twitter."
-
-      }
-
-  }
-  if (text == name){
-      text = text + " has no internet presence."
-  }
-
-  slack.send(text, "StalkerBot", ":stalker:", process.env)
-
-}
-
-grab_email_data = function(email) {
-    fullcontact.person.findByEmail(email, stalker_callback);
-}
-
 /* Handle incoming posts from circleci */
 app.post('/hook/', function(request, response) {
     //console.log("request: " + JSON.stringify(request.body));
-    payload = request.body;
-    if (! envoy.checkSig(payload, process.env.ENVOY_KEY)){
+    if (! envoy.checkSig(request.body, process.env.ENVOY_KEY)){
       console.log("ERROR: signature mismatch");
       response.status(400).send("ERROR: signature mismatch");
       return;
     }
 
-    visitor = JSON.parse(payload['entry']);
+    visitor = JSON.parse(request.body.entry);
     console.log("visitor:" + JSON.stringify(visitor));
     var date = new Date(visitor['signed_in_time_local']);
     signin_date = dateFormat(date, "dddd, mmmm dS, yyyy, h:MM:ss TT");
