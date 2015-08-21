@@ -6,6 +6,7 @@ var https = require('https');
 var crypto = require('crypto');
 var bodyParser = require('body-parser');
 var expressLogger = require('express-logger');
+var slack = require('./slack');
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: false}));
@@ -29,32 +30,6 @@ check_sig = function(payload, envoy_key){
   console.log("check_sig = " + our_sig);
   return our_sig === payload.signature.trim();
 }
-
-post_to_slack = function(text, botname, emoji){
-    slack_org = process.env.SLACK_ORGANIZATION;
-    slack_token = process.env.SLACK_TOKEN;
-    slack_channel = process.env.SLACK_CHANNEL;
-    slack_url = process.env.SLACK_URL;
-
-    console.log("Message:" + text);
-    slack_payload = {
-        "text": text,
-        "channel" : slack_channel,
-        "username" : botname,
-        "icon_emoji": emoji
-    };
-
-    /* Post to slack! */
-    requests.post(slack_url, {json:slack_payload},
-    function (error, response, body) {
-        if(response.statusCode != 200){
-          console.log("ERROR from slack: " + response.body);
-          console.log("ERROR from slack: " + response.statusCode);
-        }
-        console.log(body);
-    });
-}
-
 
 stalker_callback = function(error, result) {
   if(error || result['status'] != 200){
@@ -142,7 +117,7 @@ stalker_callback = function(error, result) {
       text = text + " has no internet presence."
   }
 
-  post_to_slack(text, "StalkerBot", ":stalker:")
+  slack.send(text, "StalkerBot", ":stalker:", process.env)
 
 }
 
@@ -193,7 +168,7 @@ app.post('/hook/', function(request, response) {
     //message_string = visitor['your_full_name']+" is here to see "+visitor['who_are_you_here_to_see\?']+".  <" + photo_url + "| Picture of "+visitor['your_full_name']+">"
     message_string = JSON.stringify(visitor);
     slack_botname = process.env.SLACK_BOTNAME;
-    post_to_slack(message_string, slack_botname, ":ghost:")
+    slack.send(message_string, slack_botname, ":ghost:",process.env);
     response.send("OK");
 });
 
