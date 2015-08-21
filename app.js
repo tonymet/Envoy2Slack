@@ -1,22 +1,14 @@
-
-
 var dateFormat = require('dateformat');
 var express = require("express");
-var qs = require('querystring');
 var requests = require('request');
 var knox = require('knox');
 var https = require('https');
-var hmac_sha256 = require("crypto-js/hmac-sha256");
+var crypto = require('crypto');
 var bodyParser = require('body-parser');
 var expressLogger = require('express-logger');
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: false}));
-
-if('' == process.env.ENVOY_KEY){
-  console.log("ENVOY_KEY is required.")
-  process.exit();
-}
 
 var client = knox.createClient({
     key: process.env.S3_KEY
@@ -32,9 +24,10 @@ app.get('/', function(request, response) {
 
 String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g, '');};
 check_sig = function(payload, envoy_key){
+  var our_sig = crypto.createHmac('sha256', envoy_key).update(payload.timestamp+payload.token).digest('hex');
   console.log("payload.signature= " + JSON.stringify(payload.signature.trim()));
-  console.log("check_sig = " + JSON.stringify(hmac_sha256(payload.timestamp + payload.token, envoy_key).toString()));
-  return hmac_sha256(payload.timestamp + payload.token, envoy_key).toString() == payload.signature.trim();
+  console.log("check_sig = " + our_sig);
+  return our_sig === payload.signature.trim();
 }
 
 post_to_slack = function(text, botname, emoji){
