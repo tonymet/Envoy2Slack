@@ -2,17 +2,17 @@
   "name": "Envoy2slack",
   "version": "0.0.1",
   "dependencies": {
+    "crypto-js": "^3.1.5",
+    "dateformat": "x",
     "express": "3.x",
-    "querystring" : "0.2.0",
-    "request" : "2.27.0",
-    "dateformat" : "x",
-    "newrelic" : "x",
-    "knox" : "x",
-    "fullcontact-api" : "x"
+    "fullcontact-api": "x",
+    "knox": "x",
+    "newrelic": "x",
+    "querystring": "0.2.0",
+    "request": "2.27.0"
   },
   "engines": {
     "node": "0.10.x",
     "npm": "1.2.x"
-
   }
 }
