@@ -7,10 +7,11 @@ var requests = require('request');
 var knox = require('knox');
 var https = require('https');
 var hmac_sha256 = require("crypto-js/hmac-sha256");
+var bodyParser = require('body-parser');
+var expressLogger = require('express-logger');
 
 var app = express();
-app.use(express.logger());
-app.use(express.bodyParser());
+app.use(bodyParser.urlencoded({extended: false}));
 
 if('' == process.env.ENVOY_KEY){
   console.log("ENVOY_KEY is required.")
@@ -204,8 +205,7 @@ app.post('/hook/', function(request, response) {
 });
 
 app.get('/hook/', function(request, response) {
-    //response.redirect('/');
-    grab_email_data("harper@nata2.org")
+    response.send('HI');
 });
 
 
