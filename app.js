@@ -16,10 +16,6 @@ var client = knox.createClient({
   , bucket: process.env.S3_BUCKET
 });
 
-app.get('/', function(request, response) {
-    response.redirect('/');
-});
-
 String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g, '');};
 
 /* Handle incoming posts from circleci */
@@ -61,10 +57,19 @@ app.post('/hook/', function(request, response) {
     });
 
     //grab_email_data(visitor['your_email_address']);
-    //message_string = visitor['your_full_name']+" is here to see "+visitor['who_are_you_here_to_see\?']+".  <" + photo_url + "| Picture of "+visitor['your_full_name']+">"
-    message_string = JSON.stringify(visitor);
+    message_string = visitor['your_full_name']+" is here to see "+visitor['who_are_you_here_to_see\?'];
+    if(photo_url){
+      message_string += " " + photo_url;
+    }
     slack_botname = process.env.SLACK_BOTNAME;
-    slack.send(message_string, slack_botname, ":ghost:",process.env);
+    slack.lookupUser(visitor['who_are_you_here_to_see\?'], function(err,user){
+      var channel = process.env.SLACK_CHANNEL;
+      if(!err)  {
+        channel = "@" + user;
+      }
+      console.log("lookupUser: " + JSON.stringify(user));
+      slack.send(message_string, slack_botname, ":ghost:", channel, process.env);
+    });
     response.send("OK");
 });
 
