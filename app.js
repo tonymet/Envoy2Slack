@@ -1,12 +1,11 @@
 var dateFormat = require('dateformat');
 var express = require("express");
-var requests = require('request');
 var knox = require('knox');
 var https = require('https');
-var crypto = require('crypto');
 var bodyParser = require('body-parser');
 var expressLogger = require('express-logger');
 var slack = require('./slack');
+var envoy = require('./envoy');
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: false}));
@@ -24,12 +23,6 @@ app.get('/', function(request, response) {
 });
 
 String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g, '');};
-check_sig = function(payload, envoy_key){
-  var our_sig = crypto.createHmac('sha256', envoy_key).update(payload.timestamp+payload.token).digest('hex');
-  console.log("payload.signature= " + JSON.stringify(payload.signature.trim()));
-  console.log("check_sig = " + our_sig);
-  return our_sig === payload.signature.trim();
-}
 
 stalker_callback = function(error, result) {
   if(error || result['status'] != 200){
@@ -129,7 +122,7 @@ grab_email_data = function(email) {
 app.post('/hook/', function(request, response) {
     //console.log("request: " + JSON.stringify(request.body));
     payload = request.body;
-    if (! check_sig(payload, process.env.ENVOY_KEY)){
+    if (! envoy.checkSig(payload, process.env.ENVOY_KEY)){
       console.log("ERROR: signature mismatch");
       response.status(400).send("ERROR: signature mismatch");
       return;
