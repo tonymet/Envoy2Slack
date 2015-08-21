@@ -17,13 +17,11 @@ if('' == process.env.ENVOY_KEY){
   process.exit();
 }
 
-if('1' == process.env.ENABLE_S3){
-  var client = knox.createClient({
-      key: process.env.S3_KEY
-    , secret: process.env.S3_SECRET
-    , bucket: process.env.S3_BUCKET
-  });
-}
+var client = knox.createClient({
+    key: process.env.S3_KEY
+  , secret: process.env.S3_SECRET
+  , bucket: process.env.S3_BUCKET
+});
 
 var fullcontact = require("fullcontact-api")(process.env.FULL_CONTACT_KEY);
 
@@ -33,8 +31,8 @@ app.get('/', function(request, response) {
 
 String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g, '');};
 check_sig = function(payload, envoy_key){
-  console.log("payload.signature= " + JSON.stringify(payload.signature));
-  console.log("check_sig = " + JSON.stringify(hmac_sha256(payload.timestamp + payload.token, envoy_key)).toString());
+  console.log("payload.signature= " + JSON.stringify(payload.signature.trim()));
+  console.log("check_sig = " + JSON.stringify(hmac_sha256(payload.timestamp + payload.token, envoy_key).toString()));
   return hmac_sha256(payload.timestamp + payload.token, envoy_key).toString() == payload.signature.trim();
 }
 
@@ -55,110 +53,103 @@ post_to_slack = function(text, botname, emoji){
     /* Post to slack! */
     requests.post(slack_url, {json:slack_payload},
     function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            console.log(body);
+        if(response.statusCode != 200){
+          console.log("ERROR from slack: " + response.body);
+          console.log("ERROR from slack: " + response.statusCode);
         }
+        console.log(body);
     });
 }
 
 
 stalker_callback = function(error, result) {
-  // if(error || result['status'] != 200){
-  //   console.log("ERROR stalker_callback");
-  //   console.log(result);
-  //
-  //   return;
-  //
-  //
-  // }
-  if (!error && (result['status'] != 404)) {
+  if(error || result['status'] != 200){
+    console.log("ERROR stalker_callback");
+    console.log(result);
+    return;
+  }
+  name = result['contactInfo']['givenName'];
+  text = name;
+  if (result['demographics'] != undefined ){
+      if (result['demographics']['locationGeneral'] != undefined ){
+          text = text + " is located in " + result['demographics']['locationGeneral']+"."
+
+      }else {
+          text = text + " is"
+      }
+  }
+
+  if (result['organizations'] != undefined ){
+      organizations = result['organizations']
+      text = text + " They are employed as "
+      job_text = [];
+      for (index = 0; index < organizations.length; ++index) {
+          if (organizations[index]['isPrimary']){
+            job_text[index] = organizations[index]['title'] + " at " + organizations[index]['name'] ;
+          }
+      }
+      text = text + job_text.join(", ") + ".\n\n";
+  }
 
 
-    name = result['contactInfo']['givenName'];
-    text = name;
-    if (result['demographics'] != undefined ){
-        if (result['demographics']['locationGeneral'] != undefined ){
-            text = text + " is located in " + result['demographics']['locationGeneral']+"."
-
-        }else {
-            text = text + " is"
-        }
-    }
-
-    if (result['organizations'] != undefined ){
-        organizations = result['organizations']
-        text = text + " They are employed as "
-        job_text = [];
-        for (index = 0; index < organizations.length; ++index) {
-            if (organizations[index]['isPrimary']){
-              job_text[index] = organizations[index]['title'] + " at " + organizations[index]['name'] ;
+  if (result['socialProfiles'] != undefined ){
+      socialProfiles = result['socialProfiles']
+      social = [];
+      social_count = 0;
+      for (index = 0; index < socialProfiles.length; ++index) {
+            if (socialProfiles[index]['typeName']== "Twitter"){
+                social[social_count] = "<" + socialProfiles[index]['url'] + "|@" + socialProfiles[index]['username']  + ">";
+                social_count++;
+            }else if (socialProfiles[index]['typeName']== "LinkedIn"){
+                social[social_count] = "<" + socialProfiles[index]['url'] + "|linkedin/>";
+                social_count++;
+            }else if (socialProfiles[index]['typeName']== "Facebook"){
+                social[social_count] = "<" + socialProfiles[index]['url'] + "|facebook/" + socialProfiles[index]['username']  + ">";
+                social_count++;
+            }else if (socialProfiles[index]['typeName']== "Pinterest"){
+                social[social_count] = "<" + socialProfiles[index]['url'] + "|pinterest/" + socialProfiles[index]['username']  + ">";
+                social_count++;
+            }else if (socialProfiles[index]['typeName']== "Flickr"){
+                social[social_count] = "<" + socialProfiles[index]['url'] + "|flickr/" + socialProfiles[index]['username']  + ">";
+                social_count++;
             }
-        }
-        text = text + job_text.join(", ") + ".\n\n";
-    }
+      }
 
 
-    if (result['socialProfiles'] != undefined ){
-        socialProfiles = result['socialProfiles']
-        social = [];
-        social_count = 0;
-        for (index = 0; index < socialProfiles.length; ++index) {
-              if (socialProfiles[index]['typeName']== "Twitter"){
-                  social[social_count] = "<" + socialProfiles[index]['url'] + "|@" + socialProfiles[index]['username']  + ">";
-                  social_count++;
-              }else if (socialProfiles[index]['typeName']== "LinkedIn"){
-                  social[social_count] = "<" + socialProfiles[index]['url'] + "|linkedin/>";
-                  social_count++;
-              }else if (socialProfiles[index]['typeName']== "Facebook"){
-                  social[social_count] = "<" + socialProfiles[index]['url'] + "|facebook/" + socialProfiles[index]['username']  + ">";
-                  social_count++;
-              }else if (socialProfiles[index]['typeName']== "Pinterest"){
-                  social[social_count] = "<" + socialProfiles[index]['url'] + "|pinterest/" + socialProfiles[index]['username']  + ">";
-                  social_count++;
-              }else if (socialProfiles[index]['typeName']== "Flickr"){
-                  social[social_count] = "<" + socialProfiles[index]['url'] + "|flickr/" + socialProfiles[index]['username']  + ">";
-                  social_count++;
-              }
-        }
+      if (social.length >0){
+          text = text + "They are on the internet at " + social.join(", ") + ".\n\n";
+
+      }
+  }
 
 
-        if (social.length >0){
-            text = text + "They are on the internet at " + social.join(", ") + ".\n\n";
+  if (result['photos'] != undefined ){
+      photos = result['photos']
+      for (index = 0; index < photos.length; ++index) {
+           if (photos[index]['isPrimary']){
+              text = text + "Photo of <" +photos[index]['url'] + "|" +result['contactInfo']['fullName'] + ">.\n\n"
+            }
+      }
+  }
 
-        }
-    }
+  if (result['digitalFootprint'] != undefined ){
+      text = text + "Their klout score is " + result['digitalFootprint']['scores'][0]['value'] ;
+      if (result['digitalFootprint']['scores'][0]['value']<40){
+          text = text + ". lol n00b."
+      }else if (result['digitalFootprint']['scores'][0]['value']<60){
+          text = text + ". semi-pro n00b? "
+      }else{
+          text = text + ". expert at twitter."
 
+      }
 
-    if (result['photos'] != undefined ){
-        photos = result['photos']
-        for (index = 0; index < photos.length; ++index) {
-             if (photos[index]['isPrimary']){
-                text = text + "Photo of <" +photos[index]['url'] + "|" +result['contactInfo']['fullName'] + ">.\n\n"
-              }
-        }
-    }
+  }
+  if (text == name){
+      text = text + " has no internet presence."
+  }
 
-    if (result['digitalFootprint'] != undefined ){
-        text = text + "Their klout score is " + result['digitalFootprint']['scores'][0]['value'] ;
-        if (result['digitalFootprint']['scores'][0]['value']<40){
-            text = text + ". lol n00b."
-        }else if (result['digitalFootprint']['scores'][0]['value']<60){
-            text = text + ". semi-pro n00b? "
-        }else{
-            text = text + ". expert at twitter."
+  post_to_slack(text, "StalkerBot", ":stalker:")
 
-        }
-
-    }
-    if (text == name){
-        text = text + " has no internet presence."
-    }
-
-    post_to_slack(text, "StalkerBot", ":stalker:")
-
-  }else{
-            console.log("Status: " + result['message'])
-        }
 }
 
 grab_email_data = function(email) {
@@ -171,20 +162,24 @@ app.post('/hook/', function(request, response) {
     payload = request.body;
     if (! check_sig(payload, process.env.ENVOY_KEY)){
       console.log("ERROR: signature mismatch");
-      response.send("ERROR: signature mismatch");
-      response.code = 502;
+      response.status(400).send("ERROR: signature mismatch");
       return;
     }
 
     visitor = JSON.parse(payload['entry']);
+    console.log("visitor:" + JSON.stringify(visitor));
     var date = new Date(visitor['signed_in_time_local']);
     signin_date = dateFormat(date, "dddd, mmmm dS, yyyy, h:MM:ss TT");
     /* This is the message. tweak it to make it better */
 
     photo_url = visitor['photo_url']
-    console.log(photo_url);
+    console.log("photo_url: " + photo_url);
 
     https.get(photo_url, function(res){
+        if(res.statusCode != 200){
+          console.log("error from S3. res=  "+ res.statusCode);
+          return;
+        }
         console.log("Got response: " + res.statusCode);
         var headers = {
             'Content-Length': res.headers['content-length']
@@ -200,8 +195,9 @@ app.post('/hook/', function(request, response) {
         });
     });
 
-    grab_email_data(visitor['your_email_address']);
-    message_string = visitor['your_full_name']+" is here to see "+visitor['who_are_you_here_to_see\?']+".  <" + photo_url + "| Picture of "+visitor['your_full_name']+">"
+    //grab_email_data(visitor['your_email_address']);
+    //message_string = visitor['your_full_name']+" is here to see "+visitor['who_are_you_here_to_see\?']+".  <" + photo_url + "| Picture of "+visitor['your_full_name']+">"
+    message_string = JSON.stringify(visitor);
     slack_botname = process.env.SLACK_BOTNAME;
     post_to_slack(message_string, slack_botname, ":ghost:")
     response.send("OK");
